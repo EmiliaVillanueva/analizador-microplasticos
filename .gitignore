@@ -1,0 +1,12 @@
+__pycache__/
+*.pyc
+.venv/
+venv/
+
+# Datos de usuario generados en tiempo de ejecución (fotos, correcciones, clasificadores
+# entrenados): son datos personales de cada instalación, no parte del código fuente.
+# app.py los crea automáticamente al arrancar (ver src/config.py) si no existen.
+data/
+
+# Configuración local del asistente (permisos de esta máquina, no del proyecto).
+.claude/settings.local.json
