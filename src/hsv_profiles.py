@@ -10,7 +10,7 @@ import json
 from . import config
 
 DEFAULT_PROFILES: dict[str, dict] = {
-    "Autofluorescencia (UV/azul)": {"hue_ranges": [[95, 140]], "sat_min": 40, "val_min": 45},
+    "Autofluorescencia (UV/azul)": {"hue_ranges": [[78, 140]], "sat_min": 40, "val_min": 45},
     "Rodamina B": {"hue_ranges": [[0, 18], [160, 179]], "sat_min": 60, "val_min": 55},
     "Rojo Nilo (Nile Red)": {"hue_ranges": [[0, 22], [155, 179]], "sat_min": 55, "val_min": 55},
     "DAPI": {"hue_ranges": [[85, 115]], "sat_min": 30, "val_min": 50},
