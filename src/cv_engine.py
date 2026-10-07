@@ -135,6 +135,7 @@ def detectar_candidatos(image_bgr: np.ndarray, profile: dict) -> tuple[list[dict
     total_px = h * w
     min_area = max(6.0, config.MIN_AREA_FRACTION * total_px)
     max_area = config.MAX_AREA_FRACTION * total_px
+    hard_max_area = config.MAX_AREA_HARD_FRACTION * total_px
 
     hsv = cv2.cvtColor(image_bgr, cv2.COLOR_BGR2HSV)
     gray = cv2.cvtColor(image_bgr, cv2.COLOR_BGR2GRAY)
@@ -149,9 +150,14 @@ def detectar_candidatos(image_bgr: np.ndarray, profile: dict) -> tuple[list[dict
         area = cv2.contourArea(c)
 
         if area > max_area:
-            # Probablemente son varias partículas pegadas/tocándose, no un solo aglomerado sin
-            # forma: intentar separarlas antes de tirar todo lo que hay adentro a la basura.
-            piezas = _separar_recursivo(c, h, w, min_area, max_area)
+            # Pueden ser varias partículas pegadas (se intenta separarlas) o UNA sola partícula
+            # grande, que no tiene nada que separar: en ese caso se conserva como candidata y la
+            # decide el clasificador, salvo que supere el tope duro (fondo/halo gigante).
+            piezas = _separar_recursivo(c, h, w, min_area, max_area, hard_max_area)
+            if not piezas and area <= hard_max_area:
+                whole_mask = np.zeros((h, w), dtype=np.uint8)
+                cv2.drawContours(whole_mask, [c], -1, 255, thickness=cv2.FILLED)
+                piezas = [(whole_mask, c)]
             if not piezas:
                 descartados_tamano += 1
                 continue
@@ -179,13 +185,14 @@ MAX_SPLIT_DEPTH = 4
 
 
 def _separar_recursivo(
-    contour: np.ndarray, h: int, w: int, min_area: float, max_area: float, depth: int = 0
+    contour: np.ndarray, h: int, w: int, min_area: float, max_area: float,
+    hard_max_area: float, depth: int = 0,
 ) -> list[tuple[np.ndarray, np.ndarray]]:
     """Separa un contorno grande en piezas dentro del rango de tamaño válido, volviendo a
     intentar sobre cualquier pieza que siga siendo demasiado grande (varias partículas pegadas no
-    siempre se separan de un solo intento de watershed). Descarta piezas que queden muy chicas
-    (ruido introducido por el propio corte) y las que no se puedan separar más tras
-    MAX_SPLIT_DEPTH intentos."""
+    siempre se separan de un solo intento de watershed). Una pieza grande que ya no se puede
+    separar más es una sola partícula grande: se conserva si no supera hard_max_area. Se descartan
+    las piezas muy chicas (recortes residuales del propio corte)."""
     piezas_crudas = _split_large_contour(contour, h, w)
     if not piezas_crudas:
         return []
@@ -195,9 +202,15 @@ def _separar_recursivo(
         pieza_area = cv2.contourArea(pieza_contour)
         if min_area <= pieza_area <= max_area:
             resultado.append((pieza_mask, pieza_contour))
-        elif pieza_area > max_area and depth < MAX_SPLIT_DEPTH:
-            resultado.extend(_separar_recursivo(pieza_contour, h, w, min_area, max_area, depth + 1))
-        # pieza_area < min_area (recorte residual del watershed) o se agotaron los intentos: se descarta
+        elif pieza_area > max_area:
+            sub = []
+            if depth < MAX_SPLIT_DEPTH:
+                sub = _separar_recursivo(pieza_contour, h, w, min_area, max_area, hard_max_area, depth + 1)
+            if sub:
+                resultado.extend(sub)
+            elif pieza_area <= hard_max_area:
+                resultado.append((pieza_mask, pieza_contour))
+        # pieza_area < min_area: recorte residual del watershed, se descarta
     return resultado
 
 

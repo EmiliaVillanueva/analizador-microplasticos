@@ -42,7 +42,10 @@ IMAGE_EXTENSIONS = {".jpg", ".jpeg", ".png", ".bmp", ".tif", ".tiff"}
 
 # --- Parámetros del motor de detección (cv_engine) ---
 MIN_AREA_FRACTION = 0.00006   # área mínima de un candidato, como fracción del total de píxeles
-MAX_AREA_FRACTION = 0.05      # área máxima (descarta aglomerados enormes / fondo mal segmentado)
+MAX_AREA_FRACTION = 0.05      # sobre esta área se intenta separar el contorno (watershed) en partículas
+# Tope duro: un contorno que supera MAX_AREA_FRACTION y NO se puede separar se considera una sola
+# partícula grande y lo evalúa el clasificador, salvo que supere este tope (fondo/halo gigante).
+MAX_AREA_HARD_FRACTION = 0.20
 
 # Umbrales por defecto para el clasificador "es MP real" cuando todavía no hay suficientes
 # ejemplos etiquetados para entrenar uno (arranque en frío).
