@@ -9,8 +9,10 @@ import json
 
 from . import config
 
+# Solo "Autofluorescencia (UV/azul)" fue validada con muestras reales (brillo mínimo 32); los
+# rangos de las demás tinciones son puntos de partida razonables, no valores validados.
 DEFAULT_PROFILES: dict[str, dict] = {
-    "Autofluorescencia (UV/azul)": {"hue_ranges": [[78, 140]], "sat_min": 40, "val_min": 45},
+    "Autofluorescencia (UV/azul)": {"hue_ranges": [[78, 140]], "sat_min": 40, "val_min": 32},
     "Rodamina B": {"hue_ranges": [[0, 18], [160, 179]], "sat_min": 60, "val_min": 55},
     "Rojo Nilo (Nile Red)": {"hue_ranges": [[0, 22], [155, 179]], "sat_min": 55, "val_min": 55},
     "DAPI": {"hue_ranges": [[85, 115]], "sat_min": 30, "val_min": 50},
