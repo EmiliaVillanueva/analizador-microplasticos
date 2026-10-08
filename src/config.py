@@ -46,6 +46,10 @@ MAX_AREA_FRACTION = 0.05      # sobre esta área se intenta separar el contorno 
 # Tope duro: un contorno que supera MAX_AREA_FRACTION y NO se puede separar se considera una sola
 # partícula grande y lo evalúa el clasificador, salvo que supere este tope (fondo/halo gigante).
 MAX_AREA_HARD_FRACTION = 0.20
+# Tamaño mínimo de un núcleo brillante extraído de una mancha gigante (partículas unidas por un
+# halo). Es mayor que MIN_AREA_FRACTION porque dentro del halo los puntos chicos son sobre todo
+# ruido: 4e-4 ≈ 830 px² (≈ 32 px de diámetro, ≈ 15 µm a 0.463 µm/px en 1920x1080).
+CORE_MIN_AREA_FRACTION = 0.0004
 
 # Umbrales por defecto para el clasificador "es MP real" cuando todavía no hay suficientes
 # ejemplos etiquetados para entrenar uno (arranque en frío).

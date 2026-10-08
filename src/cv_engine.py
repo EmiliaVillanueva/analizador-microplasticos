@@ -150,14 +150,22 @@ def detectar_candidatos(image_bgr: np.ndarray, profile: dict) -> tuple[list[dict
         area = cv2.contourArea(c)
 
         if area > max_area:
-            # Pueden ser varias partículas pegadas (se intenta separarlas) o UNA sola partícula
-            # grande, que no tiene nada que separar: en ese caso se conserva como candidata y la
-            # decide el clasificador, salvo que supere el tope duro (fondo/halo gigante).
-            piezas = _separar_recursivo(c, h, w, min_area, max_area, hard_max_area)
+            # Una mancha enorme suele ser varias partículas brillantes unidas por un halo de fondo
+            # que pasa el umbral de color. Primero se intenta quedarse con los núcleos brillantes
+            # (nuevo umbral de brillo dentro de la mancha); si eso no separa al menos dos, se
+            # prueba cortar por forma (watershed). Si tampoco, es UNA sola partícula grande: se
+            # conserva como candidata y la decide el clasificador, salvo que supere el tope duro.
+            min_core = max(min_area, config.CORE_MIN_AREA_FRACTION * total_px)
+            nucleos = _nucleos(c, hsv, h, w, min_core, max_area, hard_max_area)
+            piezas = nucleos if len(nucleos) >= 2 else []
+            if not piezas:
+                piezas = _separar_recursivo(c, h, w, min_area, max_area, hard_max_area)
             if not piezas and area <= hard_max_area:
                 whole_mask = np.zeros((h, w), dtype=np.uint8)
                 cv2.drawContours(whole_mask, [c], -1, 255, thickness=cv2.FILLED)
                 piezas = [(whole_mask, c)]
+            if not piezas:
+                piezas = nucleos
             if not piezas:
                 descartados_tamano += 1
                 continue
@@ -182,6 +190,48 @@ def detectar_candidatos(image_bgr: np.ndarray, profile: dict) -> tuple[list[dict
 
 
 MAX_SPLIT_DEPTH = 4
+MAX_CORE_DEPTH = 3
+
+
+def _nucleos(
+    contour: np.ndarray, hsv: np.ndarray, h: int, w: int,
+    min_area: float, max_area: float, hard_max_area: float, depth: int = 0,
+) -> list[tuple[np.ndarray, np.ndarray]]:
+    """Dentro de una mancha enorme (partículas brillantes unidas por un halo de fondo que pasa el
+    umbral de color), vuelve a umbralizar con un brillo mayor (Otsu sobre el brillo de ESA mancha)
+    para quedarse con los núcleos brillantes y dejar afuera el halo. Si un núcleo sigue siendo
+    demasiado grande, repite con un umbral todavía más alto."""
+    mask = np.zeros((h, w), dtype=np.uint8)
+    cv2.drawContours(mask, [contour], -1, 255, thickness=cv2.FILLED)
+    v = hsv[:, :, 2]
+    valores = v[mask > 0]
+    if valores.size < 50:
+        return []
+    umbral, _ = cv2.threshold(valores.reshape(-1, 1), 0, 255, cv2.THRESH_BINARY + cv2.THRESH_OTSU)
+    nucleo = ((v > umbral) & (mask > 0)).astype(np.uint8) * 255
+    nucleo = cv2.morphologyEx(nucleo, cv2.MORPH_OPEN, cv2.getStructuringElement(cv2.MORPH_ELLIPSE, (3, 3)))
+    contornos, _ = cv2.findContours(nucleo, cv2.RETR_EXTERNAL, cv2.CHAIN_APPROX_SIMPLE)
+
+    piezas = []
+    for k in contornos:
+        a = cv2.contourArea(k)
+        if a < min_area:
+            continue
+        if a <= max_area:
+            km = np.zeros((h, w), dtype=np.uint8)
+            cv2.drawContours(km, [k], -1, 255, thickness=cv2.FILLED)
+            piezas.append((km, k))
+            continue
+        sub = _nucleos(k, hsv, h, w, min_area, max_area, hard_max_area, depth + 1) if depth < MAX_CORE_DEPTH else []
+        if not sub:
+            sub = _separar_recursivo(k, h, w, min_area, max_area, hard_max_area)
+        if sub:
+            piezas.extend(sub)
+        elif a <= hard_max_area:
+            km = np.zeros((h, w), dtype=np.uint8)
+            cv2.drawContours(km, [k], -1, 255, thickness=cv2.FILLED)
+            piezas.append((km, k))
+    return piezas
 
 
 def _separar_recursivo(

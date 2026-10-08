@@ -37,8 +37,11 @@ is not on the PATH. Choose the language in the sidebar.
    window; the mask is cleaned by morphological opening/closing (3 × 3 elliptical kernel) and
    candidate particles are taken as external contours.
 2. **Size filtering** — candidates smaller than a minimum area are discarded. A contour larger than
-   the *split threshold* is first separated by a distance-transform watershed (recursive, up to 4
-   levels) in case several particles touch; a large contour that cannot be split is kept as a
+   the *split threshold* is usually several bright particles joined by a background halo that
+   passes the colour threshold: it is first re-thresholded at a higher brightness (Otsu within
+   the blob, repeated if needed) to keep the bright *cores*, which must exceed a larger minimum
+   area. If that does not yield at least two cores, the contour is cut by a distance-transform
+   watershed (recursive, up to 4 levels); a large contour that cannot be split is kept as a
    single particle unless it exceeds the *hard cap* (background/halo).
 3. **Features** — normalised area, aspect ratio, circularity, solidity, edge sharpness (Laplacian
    variance in a ring around the contour, normalised by a robust per-image scale) and mean H, S, V.
@@ -55,6 +58,7 @@ is not on the PATH. Choose the language in the sidebar.
 | Minimum particle area | 6 × 10⁻⁵ of the image area |
 | Watershed split threshold | 5 % of the image area |
 | Hard cap for unsplittable contours | 20 % of the image area |
+| Minimum area of a bright core inside a halo blob | 4 × 10⁻⁴ of the image area (≈ 15 µm at 0.463 µm/px, 1920 × 1080) |
 | Default real-particle rule | sharpness ≥ 0.35 and solidity ≥ 0.35 |
 | Minimum examples to calibrate | 4 |
 
@@ -82,6 +86,8 @@ resolution and calibration you used.
   will not reproduce results obtained with a locally calibrated installation unless you copy that
   folder or apply the same settings.
 - Touching particles that cannot be separated are counted as one.
+- Inside a large halo or dense cluster only bright cores above ≈ 15 µm are recovered; smaller
+  particles embedded in the halo are not detected, and very dense fields are still undercounted.
 - Very faint particles (close to the background) fall below the colour threshold and are not
   candidates; lowering *Minimum brightness* on the Settings page helps but admits more noise.
 
